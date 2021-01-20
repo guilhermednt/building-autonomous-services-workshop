@@ -103,18 +103,66 @@ final class FeatureContext extends MinkContext
      */
     public function weHaveSoldAndDeliveredItemsOfThisProduct(string $quantity): void
     {
-        self::assertEventually(function () use ($quantity) {
-            $this->visit('http://sales.localhost/createSalesOrder');
-            $this->assertSuccessfulResponse();
-            $this->selectOption('Product', $this->product);
-            $this->fillField('Quantity', $quantity);
-            $this->pressButton('Order');
-        });
+        $this->weSellQuantityOfProduct($quantity);
 
         self::assertEventually(function () {
             $this->visit('http://sales.localhost/deliverSalesOrder');
             $this->assertSuccessfulResponse();
             $this->pressButton('Deliver');
+        });
+    }
+
+    /**
+     * @When we sell :quantity item of this product
+     * @Given we have sold :quantity item of this product
+     */
+    public function weSellQuantityOfProduct(string $quantity): void
+    {
+        self::assertEventually(function () use ($quantity) {
+            $this->visit('http://sales.localhost/createSalesOrder');
+            $this->selectOption('Product', $this->product);
+            $this->fillField('Quantity', $quantity);
+            $this->pressButton('Order');
+        });
+    }
+
+    /**
+     * @Then the sales order should be deliverable
+     */
+    public function theSalesOrderShouldBeDeliverable(): void
+    {
+        self::assertEventually(function () {
+            $this->visit('http://sales.localhost/deliverSalesOrder');
+            $this->pressButton('Deliver');
+            $this->assertResponseStatus(200);
+        });
+    }
+
+    /**
+     * @When we receive the goods for the purchase order that has been created
+     */
+    public function weReceiveGoodsForThePurchaseOrder(): void
+    {
+        self::assertEventually(function () {
+            $this->visit('http://purchase.localhost/receiveGoods');
+            $this->pressButton('Receive');
+            $this->assertResponseStatus(200);
+        });
+    }
+
+    /**
+     * @Then a purchase order should have been created for :quantity item of this product
+     */
+    public function aPurchaseOrderShouldHaveBeenCreated(string $quantity): void
+    {
+        self::assertEventually(function () use ($quantity) {
+            $this->visit('http://purchase.localhost/listPurchaseOrders');
+            $jsonEncodedData = $this->getSession()->getPage()->getContent();
+            $jsonDecodedData = json_decode($jsonEncodedData, true);
+
+            Assert::assertCount(1, $jsonDecodedData);
+            $firstItem = reset($jsonDecodedData);
+            Assert::assertEquals((int)$quantity, $firstItem['quantity']);
         });
     }
 
